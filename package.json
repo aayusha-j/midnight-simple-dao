@@ -1,0 +1,62 @@
+{
+  "name": "simple-dao",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Simple DAO (Decentralized Autonomous Organization) on Midnight Network: treasury governance with anonymous voting.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "setup": "tsx src/setup.ts",
+    "setup:devnet": "docker compose up -d --wait",
+    "env:down": "docker compose down",
+    "compile": "compact compile contracts/simple-dao.compact contracts/managed/simple-dao",
+    "build": "npx tsc --noEmit",
+    "test": "cross-env NODE_OPTIONS='--experimental-vm-modules' vitest run",
+    "test:watch": "cross-env NODE_OPTIONS='--experimental-vm-modules' vitest",
+    "test:preview": "cross-env MIDNIGHT_NETWORK=preview NODE_OPTIONS='--experimental-vm-modules' vitest run tests/dao-network.test.ts",
+    "deploy": "tsx src/deploy.ts",
+    "cli": "tsx src/cli.ts",
+    "network": "tsx src/network.ts",
+    "check-balance": "tsx src/check-balance.ts",
+    "proof:up": "docker compose up -d --wait proof-server",
+    "proof:down": "docker compose stop proof-server",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:preview": "npm --prefix frontend run preview",
+    "validate": "npm run compile && npm run test"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/midnight-js-compact": "4.1.1",
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/testkit-js": "4.1.1",
+    "@midnight-ntwrk/wallet-sdk": "1.2.0",
+    "axios": "^1.15.0",
+    "pino": "^9.9.0",
+    "pino-pretty": "^13.0.0",
+    "rxjs": "^7.8.2",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.0",
+    "@types/ws": "^8.18.1",
+    "cross-env": "^7.0.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.0"
+  },
+  "resolutions": {
+    "@midnight-ntwrk/wallet-sdk": "1.2.0"
+  },
+  "packageManager": "npm@10.9.8"
+}

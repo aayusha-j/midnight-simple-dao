@@ -1,0 +1,16 @@
+node_modules
+dist
+frontend/dist
+frontend/node_modules
+contracts/managed
+.midnight-state.json
+.midnight-wallet-state
+*.env.local
+*.env.preview
+*.env.preprod
+*.env
+logs
+coverage
+*.log
+.DS_Store
+.vite
