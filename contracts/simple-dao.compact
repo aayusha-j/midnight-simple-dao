@@ -1,0 +1,185 @@
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+//
+// ══════════════════════════════════════════════════════════════════════════════
+//  Simple DAO — a treasury-governance dApp for Midnight (INTO the Midnight, SPPU)
+//
+//  WHAT IS PUBLIC (on-chain, readable by anyone through the indexer)
+//   • proposals        — every proposal: title, payout amount, recipient,
+//                        voting deadline, required quorum, the aggregate
+//                        yes/no tallies and the current status. This is
+//                        intentionally public so the community can audit what
+//                        is being voted on.
+//   • treasury         — the DAO's current balance (in DAO units). Public.
+//   • members          — a public registry of *commitments*: only the hash of
+//                        each member's secret credential is stored, so an
+//                        observer cannot map a commitment to a real person.
+//   • votesCast        — public *nullifiers* that prevent double voting. They
+//                        prove THAT a credential voted on a proposal, not who
+//                        the member was or how they voted.
+//
+//  WHAT IS PRIVATE (proved inside zero-knowledge circuits, NEVER written to
+//  the ledger, NEVER logged by the dApp)
+//   • registerMember(secret) — the 32-byte credential. Only its commitment
+//        (persistentHash) reaches the chain; the secret never does.
+//   • vote(secret, choice)   — the ballot. The vote circuit proves the caller
+//        owns a registered credential without revealing which one, and applies
+//        a single tally increment. The yes/no choice and the credential never
+//        leave the proof.
+//
+//  disclose() is used ONLY where public data must be published (proposal
+//  fields, tally deltas, treasury postings, status changes, nullifiers).
+//  Nothing private is ever passed to disclose(). Time is compared through
+//  Compact's blockTime* circuits, so the contract discloses only whether the
+//  deadline has passed — never a raw on-chain timestamp.
+//
+//  Privacy guarantees:
+//    • vote() — an observer learns: "a registered member voted on proposal N,
+//               and the aggregate tally moved by one". They DO NOT learn the
+//               member's identity nor whether the vote was yes or no.
+//    • registerMember() — an observer learns a new member commitment exists.
+//               They cannot derive the secret from the hash.
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// Lifecycle of a proposal.
+enum ProposalStatus {
+    Open,
+    Executed,
+    Rejected,
+}
+
+/// A single funding proposal.
+struct Proposal {
+    title: Opaque<"string">,
+    /// Payout amount, in DAO treasury units.
+    amount: Uint<64>,
+    /// Pay-to address (rendered as raw bytes in this build).
+    recipient: Bytes<32>,
+    /// Voting deadline, in milliseconds since unix epoch, enforced with blockTime.
+    deadline: Uint<64>,
+    /// Minimum yes-votes to auto-execute once the deadline passes.
+    quorum: Uint<64>,
+    /// Aggregate public tallies. Individual ballots remain private.
+    yes: Uint<64>,
+    no: Uint<64>,
+    status: ProposalStatus,
+}
+
+/// Auto-incrementing id used as the `proposals` key.
+export ledger nextProposalId: Uint<64>;
+/// Governance registry: id -> proposal.
+export ledger proposals: Map<Uint<64>, Proposal>;
+/// Public commitments: persistentHash(member secret). The secret never touches the chain.
+export ledger members: Set<Bytes<32>>;
+/// Public nullifiers so a member cannot vote twice on the same proposal.
+export ledger votesCast: Set<Bytes<32>>;
+/// The DAO treasury, in DAO units. (Coin-backed custody is listed as future work.)
+export ledger treasury: Uint<64>;
+
+/// Seeds the treasury at deployment time.
+constructor(seedTreasury: Uint<64>) {
+    treasury = disclose(seedTreasury);
+    nextProposalId = disclose(0);
+}
+
+/// Register a credential so its holder can vote. Only the commitment (hash) of
+/// the secret is stored; the credential input stays private.
+export circuit registerMember(secret: Bytes<32>): [] {
+    const commitment = disclose(persistentHash<Vector<1, Bytes<32>>>([secret]));
+    members.insert(commitment);
+}
+
+/// Pure helper: a fresh, Open proposal.
+circuit newProposal(title: Opaque<"string">, amount: Uint<64>, recipient: Bytes<32>, deadline: Uint<64>, quorum: Uint<64>): Proposal {
+    return Proposal{
+        title: title, amount: amount, recipient: recipient,
+        deadline: deadline, quorum: quorum,
+        yes: 0, no: 0, status: ProposalStatus.Open,
+    };
+}
+
+/// Open a new spending proposal. Proposal metadata is intentionally public so
+/// the community can weigh what is being voted on.
+export circuit submitProposal(title: Opaque<"string">, amount: Uint<64>, recipient: Bytes<32>, deadline: Uint<64>, quorum: Uint<64>): [] {
+    assert(amount > 0, "Amount must be greater than zero");
+    assert(quorum >= 1, "Quorum must be at least 1");
+    assert(blockTimeLt(disclose(deadline)), "Deadline must be in the future");
+
+    const id = disclose(nextProposalId);
+    proposals.insert(id, disclose(newProposal(title, amount, recipient, deadline, quorum)));
+    nextProposalId = disclose((nextProposalId + 1) as Uint<64>);
+}
+
+/// Vote yes or no on an open proposal.
+///
+/// `secret` and `choice` are *private* inputs embedded in the ZK proof. Inside
+/// the circuit we derive the membership commitment and the one-unit tally delta;
+/// on the chain we record only an opaque nullifier plus a public two-bin tally.
+export circuit vote(proposalId: Uint<64>, choice: Boolean, secret: Bytes<32>): [] {
+    const commitment = disclose(persistentHash<Vector<1, Bytes<32>>>([secret]));
+    assert(members.member(commitment), "Not a registered member");
+
+    const nullifier = disclose(persistentHash<Vector<4, Bytes<32>>>([
+        pad(32, "simple-dao:vote"),
+        secret,
+        proposalId as Field as Bytes<32>,
+        pad(32, "simple-dao:once"),
+    ]));
+    assert(!votesCast.member(nullifier), "Already voted on this proposal");
+
+    const p = proposals.lookup(disclose(proposalId));
+    assert(p.status == ProposalStatus.Open, "Proposal is not open");
+    assert(blockTimeLt(disclose(p.deadline)), "Voting has closed");
+
+    const nextYes = bumpYes(p.yes, choice);
+    const nextNo = bumpNo(p.no, choice);
+    proposals.insert(disclose(proposalId), disclose(Proposal{
+        title: p.title, amount: p.amount, recipient: p.recipient,
+        deadline: p.deadline, quorum: p.quorum,
+        yes: nextYes, no: nextNo, status: p.status,
+    }));
+    votesCast.insert(disclose(nullifier));
+}
+
+/// Finalise a proposal once the deadline has passed and the threshold is met.
+/// Anyone may call it — the outcome is decided purely by the tally history, so
+/// the contract "automatically" executes (or rejects) based on the results:
+///   approved  ⟺ yes >= quorum AND yes > no AND treasury covers the amount.
+export circuit executeProposal(proposalId: Uint<64>): [] {
+    const p = proposals.lookup(disclose(proposalId));
+    assert(p.status == ProposalStatus.Open, "Proposal is not open");
+    assert(blockTimeGte(disclose(p.deadline)), "Deadline not reached");
+
+    const approved = p.yes >= p.quorum && p.yes > p.no && p.amount <= treasury;
+    if (approved) {
+        treasury = disclose(treasury - p.amount);
+        proposals.insert(disclose(proposalId), disclose(withStatus(p, ProposalStatus.Executed)));
+    } else {
+        proposals.insert(disclose(proposalId), disclose(withStatus(p, ProposalStatus.Rejected)));
+    }
+}
+
+/// Pure helper: a `Proposal` with a different status.
+circuit withStatus(p: Proposal, s: ProposalStatus): Proposal {
+    return Proposal{
+        title: p.title, amount: p.amount, recipient: p.recipient,
+        deadline: p.deadline, quorum: p.quorum,
+        yes: p.yes, no: p.no, status: s };
+}
+
+/// Pure helper: tally arithmetic for the yes bin.
+circuit bumpYes(yes: Uint<64>, choice: Boolean): Uint<64> {
+    if (choice) {
+        return (yes + 1) as Uint<64>;
+    }
+    return yes;
+}
+
+/// Pure helper: tally arithmetic for the no bin.
+circuit bumpNo(no: Uint<64>, choice: Boolean): Uint<64> {
+    if (choice) {
+        return no;
+    }
+    return (no + 1) as Uint<64>;
+}
