@@ -9,8 +9,8 @@ Treasury governance today is all-or-nothing: either the books are fully public a
 ## Smart Contract Deployment
 
 - **Network:** Preview
-- **Deployed contract ID:** `[PENDING — run: npm run deploy -- --network preview]`
-
+- **Deployed contract address:** `816ffc6777b0ed3ffaed5fada2733eb9694902ece641b66eb4c43ce8b3b42369`
+- **Deployer wallet address:** `mn_addr_preview1k9elxqmx6qwf34wqm29nzhrmavp7v50qn4scafv2778q8430zrrqhe238y`
 ## Key Features
 
 - **Private membership.** A member registers with a 32-byte credential; only its `persistentHash` commitment is stored on-chain. The secret never touches the ledger.
