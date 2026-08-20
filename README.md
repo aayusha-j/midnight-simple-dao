@@ -9,7 +9,7 @@ Treasury governance today is all-or-nothing: either the books are fully public a
 ## Smart Contract Deployment
 
 - **Network:** Preview
-- **Deployed contract address:** `816ffc6777b0ed3ffaed5fada2733eb9694902ece641b66eb4c43ce8b3b42369`
+- **Deployed contract address:** `48bd1323473b73840cd8474f36fb58051cb50f52413f733f43ec334588005c9f`
 - **Deployer wallet address:** `mn_addr_preview1k9elxqmx6qwf34wqm29nzhrmavp7v50qn4scafv2778q8430zrrqhe238y`
 ## Key Features
 
