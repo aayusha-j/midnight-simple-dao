@@ -6,11 +6,38 @@ A governance system where token holders can submit proposals and vote on how to 
 
 Treasury governance today is all-or-nothing: either the books are fully public and individual votes leak, or everything hides behind a trusted party. Simple DAO shows a middle path enabled by Midnight's zero-knowledge circuits: the community can **audit everything that matters** (what is being proposed, how much, who is eligible to vote) while **no one can tell how any single member voted**. Votes are proven correct without revealing the ballot — a member's credential and their yes/no choice exist only inside a ZK proof and are discarded the moment it is submitted. This matters for real DAOs because vote-buying, coercion and retaliation all depend on voters being identifiable; privacy is what makes governance safe to participate in. Midnight's Compact language lets us put commitments and nullifiers on-chain while keeping the secrets that back them provably unrevealed.
 
+## Initial Idea
+
+The initial idea behind this project was to build a privacy-focused Decentralized Autonomous Organization (DAO) using the Midnight network and Compact language.
+
+In traditional blockchain applications, a lot of information is visible to everyone. While this provides transparency, it can also expose some sensitive information about users and their participation. So, the main goal of this project was to understand how a DAO can provide transparent and verifiable governance while still keeping important user information private.
+
+The Simple DAO allows members to take part in proposals and voting while keeping their individual credentials and voting choices private. Zero-knowledge proofs are used to show that the required conditions are satisfied without actually revealing the private information.
+
+Through this project, I wanted to understand how blockchain transparency and privacy can work together and how Midnight can be used to build a more private and secure decentralized governance system.
+
+## Problem
+
+In a normal blockchain-based voting system, a lot of information can be visible publicly. This is useful for transparency, but it can also reveal sensitive information about users and their participation.
+
+For a DAO, members should be able to prove that they are allowed to vote without revealing their private credentials or showing how they voted. This can be difficult to achieve when all the information is stored publicly on a blockchain.
+
+## Solution
+
+This project uses the Midnight network and Compact language to build a DAO that combines transparency with privacy.
+
+The DAO keeps important information such as proposals and voting results available on-chain, while private credentials and individual voting choices are kept hidden. Zero-knowledge proofs allow members to prove that they are eligible to participate without revealing their private information.
+
+This makes it possible to have a transparent and verifiable DAO while still protecting the privacy of individual members.
+
 ## Smart Contract Deployment
 
 - **Network:** Preview
 - **Deployed contract address:** `48bd1323473b73840cd8474f36fb58051cb50f52413f733f43ec334588005c9f`
 - **Deployer wallet address:** `mn_addr_preview1k9elxqmx6qwf34wqm29nzhrmavp7v50qn4scafv2778q8430zrrqhe238y`
+
+
+
 ## Key Features
 
 - **Private membership.** A member registers with a 32-byte credential; only its `persistentHash` commitment is stored on-chain. The secret never touches the ledger.
@@ -112,9 +139,60 @@ npm run frontend:build    # typecheck + production build (zero errors)
 
 Install the Midnight Wallet browser extension, connect to **Preview**, and interact with the deployed contract. Reads come from the indexer; writes are proven in your wallet and submitted on-chain.
 
+## Screenshots
+
+### Preview Contract Deployment
+
+The Simple DAO contract was successfully deployed to the Midnight Preview network.
+
+![Preview Contract Deployment](screenshots/deployment.png)
+
+### Preview Faucet
+
+The deployment wallet was successfully funded using the Midnight Preview faucet.
+
+![Preview Faucet](screenshots/faucet.png)
+
+### Contract Compilation
+
+The Compact contract was successfully compiled and four circuits were generated: `executeProposal`, `registerMember`, `submitProposal`, and `vote`.
+
+![Contract Compilation](screenshots/compile.png)
+
+
+
+### Test Results
+
+The test suite completed successfully with 9 passing tests covering circuit logic, state transitions, proposal lifecycle, and privacy behavior.
+
+![Test Results](screenshots/tests.png)
+
 ### Hosting
 
 `frontend/vercel.json` and `frontend/netlify.toml` (+ `public/_redirects`) provide SPA rewrites for Vercel and Netlify deploys.
+
+## Privacy Model
+
+### What is PUBLIC
+
+- DAO proposals and their details
+- Treasury state
+- Member commitments
+- Vote nullifiers
+- Aggregate voting results
+- Contract address and network
+
+### What is PRIVATE
+
+- The member's original 32-byte credential
+- Individual yes/no voting choice
+- Private witness values used by the circuits
+
+### What the User PROVES Without Revealing
+
+A member can prove that they have a valid registered credential and are allowed to participate in the DAO without revealing the credential itself.
+
+When voting, the member can also prove that a valid vote was made without revealing whether the member voted yes or no. The blockchain only receives the required proof, nullifier and updated public state.
 
 ## Privacy in plain English
 
